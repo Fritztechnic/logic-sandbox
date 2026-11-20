@@ -23,3 +23,13 @@ werden lokal aus `@fontsource-variable` gebündelt.
 Messplatz-Optik: tiefes Teal-Schwarz, Signalgrün = logisch 1, Cyan = Bus,
 Bernstein = Warnung. Alle Farben liegen als Variablen in `src/styles.css`
 und `src/tutorial/tutorial.css`; die Canvas-Palette in `src/render.ts`.
+
+## Betrieb
+
+Läuft als nginx-Pod im RKE2-Cluster (Argo-App `static-sites`, Repo VioServe/infra).
+Image bauen und auf k8s1-3 importieren (keine Registry), dann Tag im Infra-Repo per PR erhöhen:
+
+```sh
+docker build -t vio-static-logic:N .
+docker save vio-static-logic:N | ssh ops@<node> 'sudo ctr --address /run/k3s/containerd/containerd.sock -n k8s.io images import -'
+```
