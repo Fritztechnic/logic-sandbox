@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Logic Sandbox — Baue CPUs aus Logikgattern</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header id="toolbar">
+        <div class="brand">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3 8h5M3 16h5M15 12h4" />
+            <path d="M8 4.5h4.5a7.5 7.5 0 0 1 0 15H8z" />
+            <circle class="pulse" cx="21" cy="12" r="1.6" />
+          </svg>
+          <span>Logic<b>/</b>Sandbox</span>
+        </div>
+        <div class="tools">
+          <button id="btn-run" class="btn primary" title="Simulation starten/anhalten (Leertaste)">Start</button>
+          <button id="btn-step" class="btn" title="Einen Takt weiterschalten (S)">Schritt</button>
+          <button id="btn-reset" class="btn" title="Zustand zurücksetzen (R)">Reset</button>
+          <button id="btn-full" class="btn" title="Ganze Schaltung einpassen – Module bleiben kompakt">Gesamt</button>
+          <button id="btn-expand" class="btn" title="Alle Module entpackt anzeigen (nur Ansehen)">Entpackt</button>
+          <button id="btn-route" class="btn" title="Kabelführung umschalten: geschwungen oder rechtwinklig, an Modulen vorbei">Bahn: Kurven</button>
+          <span class="sep"></span>
+          <label class="speed">
+            <span class="label">Takt</span>
+            <input id="speed" type="range" min="0" max="1000" step="1" value="150" aria-label="Taktfrequenz" />
+            <span id="speed-label">8 Hz</span>
+          </label>
+        </div>
+        <div class="tools right">
+          <label class="example">
+            <span class="label">Beispiel</span>
+            <select id="examples">
+              <option value="">Laden …</option>
+            </select>
+          </label>
+          <span class="sep"></span>
+          <a class="btn" href="/cpu8bit/" style="text-decoration:none;display:inline-flex;align-items:center" title="Interaktive Anleitung: 8-Bit-CPU vom Halbaddierer bis zur CPU">Anleitung</a>
+          <button id="btn-code" class="btn" title="Assembler-/Mikrocode-Fenster">Code</button>
+          <button id="btn-export" class="btn" title="Schaltung als JSON speichern">Export</button>
+          <button id="btn-import" class="btn" title="Schaltung aus JSON laden">Import</button>
+          <input id="import-file" type="file" accept="application/json" hidden />
+          <button id="btn-clear" class="btn danger" title="Alles löschen">Leeren</button>
+        </div>
+      </header>
+
+      <nav id="tabs">
+        <div id="tab-list" role="tablist"></div>
+        <div class="tab-add-wrap">
+          <button id="tab-add" class="tab-add" title="Neue Ansicht als Tab öffnen">＋</button>
+          <div id="tab-menu" hidden>
+            <button data-kind="circuit" class="tab-menu-item">◇ Gesamtansicht</button>
+            <button data-kind="expanded" class="tab-menu-item">⧉ Entpackte Ansicht</button>
+            <button data-kind="code" class="tab-menu-item">▤ Code-Fenster</button>
+          </div>
+        </div>
+      </nav>
+
+      <main id="main">
+        <aside id="palette"></aside>
+
+        <div id="stage">
+          <canvas id="canvas"></canvas>
+          <div id="module-bar" hidden>
+            <div class="mb-left">
+              <span class="mb-badge">Modul-Editor</span>
+              <span id="module-bar-name" class="mb-name"></span>
+              <span class="mb-hint">nur dieses Modul</span>
+            </div>
+            <div class="mb-actions">
+              <button id="btn-module-overview" class="btn" title="Änderungen verwerfen und Modul-Tab schließen">Abbrechen</button>
+              <button id="btn-module-version" class="btn" title="Kopie als neues Modul anlegen und weiterbearbeiten">Neue Version</button>
+              <button id="btn-module-save" class="btn primary" title="Übernimmt die Änderungen in alle Instanzen">Speichern</button>
+            </div>
+          </div>
+          <div id="empty-hint">
+            <div class="empty-inner">
+              <h2>Schaltungen aus Logikgattern</h2>
+              <p>Bauteil links wählen und auf die Fläche klicken. Von einem Ausgangs-Pin zu einem Eingangs-Pin ziehen, um zu verbinden.</p>
+              <div class="hint-keys">
+                <span><kbd>Mausrad</kbd> Zoom</span>
+                <span><kbd>Ziehen</kbd> Auswahlrahmen</span>
+                <span><kbd>Shift</kbd> + <kbd>Klick</kbd> dazuwählen</span>
+                <span><kbd>Pfeiltasten</kbd> Verschieben (<kbd>Shift</kbd> 5 Zellen)</span>
+                <span><kbd>Mittlere Maus</kbd> Ansicht schieben</span>
+                <span><kbd>Rechtsklick</kbd> Löschen</span>
+                <span><kbd>Entf</kbd> Auswahl löschen</span>
+                <span><kbd>Strg</kbd> + <kbd>D</kbd> Duplizieren</span>
+                <span><kbd>Strg</kbd> + <kbd>C</kbd> / <kbd>V</kbd> Kopieren</span>
+                <span><kbd>M</kbd> Massen-Verbindung (Quellen markieren, Ziel klicken)</span>
+                <span><kbd>Esc</kbd> Abbrechen</span>
+                <span><kbd>Leertaste</kbd> Start/Stopp</span>
+                <span><kbd>S</kbd> Einzelschritt</span>
+                <span><kbd>R</kbd> Zurücksetzen</span>
+                <span>Pin auf falsche Breite ziehen: Bit wählen / replizieren</span>
+              </div>
+            </div>
+          </div>
+          <div id="zoom-badge"></div>
+        </div>
+
+        <aside id="side">
+          <section id="props">
+            <h3>Eigenschaften</h3>
+            <div id="props-body"><p class="muted">Nichts ausgewählt.</p></div>
+          </section>
+        </aside>
+      </main>
+
+      <section id="code-panel" hidden>
+        <div class="code-head">
+          <div>
+            <div class="code-title">Assembler</div>
+            <div class="code-sub">8-Bit-Befehle · 16-Bit-Wörter · Labels und .org / .word</div>
+          </div>
+          <div class="code-actions">
+            <button id="btn-code-copy" class="btn">Hex kopieren</button>
+            <button id="btn-code-rom" class="btn primary">In ROM laden</button>
+            <button id="btn-code-close" class="btn">Schließen</button>
+          </div>
+        </div>
+        <div class="code-body">
+          <textarea id="code-input" spellcheck="false" aria-label="Assembler-Quelltext"></textarea>
+          <div class="code-side">
+            <div class="code-legend">
+              <b>Befehle</b>
+              <div id="code-reference"></div>
+            </div>
+            <pre id="code-output"></pre>
+          </div>
+        </div>
+      </section>
+
+      <footer id="status">
+        <span id="status-left">Bereit.</span>
+        <span id="status-right"></span>
+      </footer>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
